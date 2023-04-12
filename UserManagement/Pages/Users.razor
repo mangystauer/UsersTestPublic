@@ -1,0 +1,264 @@
+﻿@page "/userManagent"
+@page "/"
+
+@using DataAccess.DataService;
+@using DataAccessLibrary.Models;
+@inject IUserService userService
+@using Microsoft.AspNetCore.Components.Forms;
+@using UserManagement.Models;
+@using System.ComponentModel.DataAnnotations;
+
+
+
+
+<PageTitle>Список пользователей</PageTitle>
+
+
+<h1>Список пользователей</h1>
+
+@if (users == null)
+{
+    <p>Загрузка...</p>
+}
+else if (users.Count == 0)
+{
+    <p>Список пользователей пуст</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Имя</th>
+                <th>Фамилия</th>
+                <th>Отчество</th>
+                <th>Логин</th>
+                <th>Удален</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var user in users)
+            {
+                <tr>
+                    <td>@user.Id</td>
+                    <td>@user.FirstName</td>
+                    <td>@user.LastName</td>
+                    <td>@user.MiddleName</td>
+                    <td>@user.AdLogin</td>
+                    <td>@(user.IsDeleted ? "Да" : "Нет")</td>
+                    <td>
+                        <button class="btn btn-primary me-md-2" @onclick="(() => OpenUser(user.Id))">Открыть</button>
+                        @if (idToDelete == user.Id)
+                        {
+                            if (user.IsDeleted)
+                            {
+                                <button class="btn btn-disabled" disabled>
+                                    Удален
+                                </button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-danger me-md-2" @onclick="(() => DeleteUser(user.Id))">
+                                    @deleteMessage
+                                </button>
+                            }
+                        }
+                        else
+                        {
+                            if (user.IsDeleted)
+                            {
+                                <button class="btn btn-disabled" disabled>
+                                    Удален
+                                </button>
+                            }
+                            else
+                            {
+                                <button class="@deleteClass" @onclick="(() => idToDelete = user.Id)">
+                                    Удалить
+                                </button>
+                            }
+                        }
+                    </td>
+                </tr>
+            }
+            <tr>
+                <td colspan="6" class="text-center">
+                    <button class="btn btn-primary" @onclick="(() => AddUser())">+</button>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+}
+
+@if (userDialogIsOpen)
+{
+    <UserDialog User="@selectedUser" OnClose="CloseUserDialog" OnSave="SaveUser"></UserDialog>
+}
+
+@if (userEntryForm)
+{
+
+
+    <hr />
+    <EditForm Model="@selectedUser" OnValidSubmit="SaveUser">
+        <h3>Данные пользователя</h3>
+        <br />
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <div class="form-group">
+                    @if (showId == true)
+                    {
+                    <label for="Id">Id:</label>
+
+                        <InputNumber class="form-control" id="userId" @bind-Value="@selectedUser.Id" disabled="true" />
+                    }
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label for="firstName">Имя:</label>
+                    <InputText class="form-control" id="firstName" @bind-Value="@selectedUser.FirstName" />
+                    <ValidationMessage For="@(() => selectedUser.FirstName)" />
+                </div>
+                <div class="form-group">
+                    <label for="middleName">Отчество:</label>
+                    <InputText class="form-control" id="middleName" @bind-Value="@selectedUser.MiddleName" />
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label for="lastName">Фамилия:</label>
+                    <InputText class="form-control" id="lastName" @bind-Value="@selectedUser.LastName" />
+                </div>
+                <div class="form-group">
+                    <label for="adLogin">AD Логин:</label>
+                    <InputText class="form-control" id="adLogin" @bind-Value="@selectedUser.AdLogin" />
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-3">
+            <button class="btn btn-primary" type="submit">Сохранить</button>
+            <button class="btn btn-secondary" @onclick="CancelSave">Отмена</button>
+        </div>
+    </EditForm>
+
+
+
+}
+
+
+
+@code {
+    private List<IUser> users;
+    private bool userDialogIsOpen;
+    private IUser selectedUser = new DisplayUser();
+    private bool userEntryForm;
+    private int idToDelete = 0;
+    private string deleteClass = "btn btn-outline-danger me-md-2";
+    private string deleteMessage = "Подтвердить удаление";
+    private bool showId = true;
+
+
+
+    protected override void OnParametersSet()
+    {
+
+        base.OnParametersSet();
+        LoadUsers();
+        if (users.Count == 0)
+        {
+            CreateDummyUsers();
+        }
+
+    }
+
+    private void LoadUsers()
+    {
+        users = userService.GetUsers();
+    }
+
+
+    private void CreateDummyUsers()
+    {
+        //наполняем дамми данные
+
+        IUser dummyUser1 = new DisplayUser { FirstName = "Иван", MiddleName = "Сергеевич", LastName = "Иванов", AdLogin = "ivaniv", IsDeleted = false };
+        IUser dummyUser2 = new DisplayUser { FirstName = "Наталия", LastName = "Васильева", AdLogin = "natava", IsDeleted = false };
+        IUser dummyUser3 = new DisplayUser { FirstName = "Сергей", MiddleName = "Васильевич", LastName = "Караваев", AdLogin = "sergka", IsDeleted = false };
+
+
+
+        userService.AddUser(dummyUser1);
+        userService.AddUser(dummyUser2);
+        userService.AddUser(dummyUser3);
+
+
+
+
+
+    }
+
+    private void OpenUser(int userId)
+    {
+        showId = true;
+        selectedUser = userService.GetUserById(userId);
+        userEntryForm = true;
+    }
+
+    private void CloseUserDialog()
+    {
+        userDialogIsOpen = false;
+    }
+
+    private void DeleteUser(int userId)
+    {
+        selectedUser = userService.GetUserById(userId);
+        userService.DeleteUser(selectedUser);
+        LoadUsers();
+    }
+
+    private void SaveUser()
+    {
+        if (selectedUser.Id == 0)
+        {
+            // Add new user
+            userService.AddUser((User)selectedUser);
+        }
+        else
+        {
+            // Update existing user
+            userService.UpdateUser(selectedUser);
+        }
+
+        CloseUserDialog();
+        userEntryForm = false;
+        LoadUsers();
+
+    }
+
+    private void CancelSave()
+    {
+        CloseUserDialog();
+        userEntryForm = false;
+    }
+
+
+    private void AddUser()
+    {
+        showId = false;
+
+        selectedUser = new User();
+
+        userEntryForm = true;
+
+        
+
+
+    }
+}
